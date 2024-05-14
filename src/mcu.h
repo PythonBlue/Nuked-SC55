@@ -359,7 +359,7 @@ inline void MCU_PushStack(uint16_t data)
     if (mcu.r[7] & 1)
         MCU_Interrupt_Exception(EXCEPTION_SOURCE_ADDRESS_ERROR);
     mcu.r[7] -= 2;
-    MCU_Write16(mcu.r[7], data);
+    MCU_Write16(mcu.tp << 16 | mcu.r[7], data);
 }
 
 inline uint16_t MCU_PopStack(void)
@@ -367,7 +367,7 @@ inline uint16_t MCU_PopStack(void)
     uint16_t ret;
     if (mcu.r[7] & 1)
         MCU_Interrupt_Exception(EXCEPTION_SOURCE_ADDRESS_ERROR);
-    ret = MCU_Read16(mcu.r[7]);
+    ret = MCU_Read16(mcu.tp << 16 | mcu.r[7]);
     mcu.r[7] += 2;
     return ret;
 }
@@ -439,6 +439,7 @@ enum {
     ROM_SET_RLP3237,
     ROM_SET_SC155,
     ROM_SET_SC155MK2,
+    ROM_SET_SC88,
     ROM_SET_COUNT
 };
 
@@ -452,6 +453,7 @@ extern int mcu_st;
 extern int mcu_jv880;
 extern int mcu_scb55;
 extern int mcu_sc155;
+extern int mcu_sc88;
 
 extern SDL_atomic_t mcu_button_pressed;
 

@@ -51,6 +51,8 @@
 #include <limits.h>
 #endif
 
+static const int ROM_SET_FILES = 6;
+
 const char* rs_name[ROM_SET_COUNT] = {
     "SC-55mk2",
     "SC-55st",
@@ -60,50 +62,58 @@ const char* rs_name[ROM_SET_COUNT] = {
     "SCB-55",
     "RLP-3237",
     "SC-155",
-    "SC-155mk2"
+    "SC-155mk2",
+    "SC-88"
 };
 
-const char* roms[ROM_SET_COUNT][5] =
+const char* roms[ROM_SET_COUNT][ROM_SET_FILES] =
 {
     "rom1.bin",
     "rom2.bin",
     "waverom1.bin",
     "waverom2.bin",
     "rom_sm.bin",
+    "",
 
     "rom1.bin",
     "rom2_st.bin",
     "waverom1.bin",
     "waverom2.bin",
     "rom_sm.bin",
+    "",
 
     "sc55_rom1.bin",
     "sc55_rom2.bin",
     "sc55_waverom1.bin",
     "sc55_waverom2.bin",
     "sc55_waverom3.bin",
+    "",
 
     "cm300_rom1.bin",
     "cm300_rom2.bin",
     "cm300_waverom1.bin",
     "cm300_waverom2.bin",
     "cm300_waverom3.bin",
+    "",
 
     "jv880_rom1.bin",
     "jv880_rom2.bin",
     "jv880_waverom1.bin",
     "jv880_waverom2.bin",
     "jv880_waverom_expansion.bin",
+    "",
 
     "scb55_rom1.bin",
     "scb55_rom2.bin",
     "scb55_waverom1.bin",
     "scb55_waverom2.bin",
     "",
+    "",
 
     "rlp3237_rom1.bin",
     "rlp3237_rom2.bin",
     "rlp3237_waverom1.bin",
+    "",
     "",
     "",
 
@@ -112,20 +122,29 @@ const char* roms[ROM_SET_COUNT][5] =
     "sc155_waverom1.bin",
     "sc155_waverom2.bin",
     "sc155_waverom3.bin",
+    "",
 
     "rom1.bin",
     "rom2.bin",
     "waverom1.bin",
     "waverom2.bin",
     "rom_sm.bin",
+    "",
+
+    "",
+    "ControlROMSC88.bin",
+    "PCM_IC_325.bin",
+    "PCM_IC_326.bin",
+    "PCM_IC_327.bin",
+    "PCM_IC_328.bin",
 };
 
 int romset = ROM_SET_MK2;
 
 static const int ROM1_SIZE = 0x8000;
 static const int ROM2_SIZE = 0x80000;
-static const int RAM_SIZE = 0x400;
-static const int SRAM_SIZE = 0x8000;
+static const int RAM_SIZE = 0x10000;
+static const int SRAM_SIZE = 0x10000;
 static const int NVRAM_SIZE = 0x8000; // JV880 only
 static const int CARDRAM_SIZE = 0x8000; // JV880 only
 static const int ROMSM_SIZE = 0x1000;
@@ -151,6 +170,7 @@ int mcu_st = 0; // 0 - SC-55mk2, 1 - SC-55ST
 int mcu_jv880 = 0; // 0 - SC-55, 1 - JV880
 int mcu_scb55 = 0; // 0 - sub mcu (e.g SC-55mk2), 1 - no sub mcu (e.g SCB-55)
 int mcu_sc155 = 0; // 0 - SC-55(MK2), 1 - SC-155(MK2)
+int mcu_sc88 = 0; // 0 - SC-55(MK2), 1 - SC-88
 
 static int ga_int[8];
 static int ga_int_enable = 0;
@@ -550,12 +570,67 @@ int rom2_mask = ROM2_SIZE - 1;
 
 uint8_t MCU_Read(uint32_t address)
 {
+    uint32_t address_full = address;
     uint32_t address_rom = address & 0x3ffff;
-    if (address & 0x80000 && !mcu_jv880)
+    if (address & 0x80000 && !mcu_jv880 && !mcu_sc88)
         address_rom |= 0x40000;
     uint8_t page = (address >> 16) & 0xf;
     address &= 0xffff;
     uint8_t ret = 0xff;
+
+    if (mcu_sc88)
+    {
+        if (page == 0)
+        {
+            if (!(address & 0x8000))
+                ret = rom2[address & 0x7fff];
+            else if (address == 0xf602) {
+                printf("r ext f602\n");
+                ret = 0xff;
+            }
+            else if (address == 0xfe8a) ret = 0b00101101; // P5DR
+            else if (address == 0xfe90) ret = MCU_DeviceRead(DEV_ADDRAH); // ADDRA H
+            else if (address == 0xfe91) ret = MCU_DeviceRead(DEV_ADDRAL); // ADDRA L
+            else if (address == 0xfe92) ret = MCU_DeviceRead(DEV_ADDRBH); // ADDRB H
+            else if (address == 0xfe93) ret = MCU_DeviceRead(DEV_ADDRBL); // ADDRB L
+            else if (address == 0xfe94) ret = MCU_DeviceRead(DEV_ADDRCH); // ADDRC H
+            else if (address == 0xfe95) ret = MCU_DeviceRead(DEV_ADDRCL); // ADDRC L
+            else if (address == 0xfe96) ret = MCU_DeviceRead(DEV_ADDRDH); // ADDRD H
+            else if (address == 0xfe97) ret = MCU_DeviceRead(DEV_ADDRDL); // ADDRD L
+            else if (address == 0xfe98) ret = MCU_DeviceRead(DEV_ADCSR); // ADCSR
+            else if (address == 0xfe98) ret = MCU_DeviceRead(DEV_ADCSR); // ADCSR
+            else if (address == 0xfea0) ret = MCU_DeviceRead(DEV_FRT1_TCR); // TCR FRT1
+            else if (address == 0xfea1) ret = MCU_DeviceRead(DEV_FRT1_TCSR); // TCSR FRT1
+            else if (address == 0xfea2) ret = MCU_DeviceRead(DEV_FRT1_FRCH); // FRC H FRT1
+            else if (address == 0xfea3) ret = MCU_DeviceRead(DEV_FRT1_FRCL); // FRC L FRT1
+            else if (address == 0xfea4) ret = MCU_DeviceRead(DEV_FRT1_OCRAH); // OCRA H FRT1
+            else if (address == 0xfea5) ret = MCU_DeviceRead(DEV_FRT1_OCRAL); // OCRA L FRT1
+            else if (address == 0xfeb0) ret = MCU_DeviceRead(DEV_FRT2_TCR); // TCR FRT2
+            else if (address == 0xfeb1) ret = MCU_DeviceRead(DEV_FRT2_TCSR); // TCSR FRT2
+            else if (address == 0xfeb2) ret = MCU_DeviceRead(DEV_FRT2_FRCH); // FRC H FRT2
+            else if (address == 0xfeb3) ret = MCU_DeviceRead(DEV_FRT2_FRCL); // FRC L FRT2
+            else if (address == 0xfeb4) ret = MCU_DeviceRead(DEV_FRT2_OCRAH); // OCRA H FRT2
+            else if (address == 0xfeb5) ret = MCU_DeviceRead(DEV_FRT2_OCRAL); // OCRA L FRT2
+            else if (address == 0xff10) printf("r TCSR WDT\n"); // MCU_DeviceRead(0xff10); // TCSR WDT
+            else if (address == 0xff1d) printf("r IRQCR\n"); // MCU_DeviceRead(0xff1d); // IRQCR
+            else
+                printf("%x%04x: read  %x%04x\n", mcu.cp, mcu.pc, page, address);
+        }
+        else if (page <= 7)
+        {
+            ret = rom2[address_full];
+            // printf("%x%04x: read  %x%04x\n", mcu.cp, mcu.pc, page, address);
+        }
+        else if (page == 8)
+        {
+            ret = sram[address & 0xffff];
+            // printf("%x%04x: read  %x%04x\n", mcu.cp, mcu.pc, page, address);
+        }
+        else
+            printf("%x%04x: read  %x%04x\n", mcu.cp, mcu.pc, page, address);
+        return ret;
+    }
+
     switch (page)
     {
     case 0:
@@ -754,6 +829,66 @@ void MCU_Write(uint32_t address, uint8_t value)
 {
     uint8_t page = (address >> 16) & 0xf;
     address &= 0xffff;
+    
+    if (mcu_sc88)
+    {
+        if (page == 0)
+        {
+                 if (address == 0xfe22) printf("w ext fe22 %x\n", value); // ext fe22
+            else if (address == 0xfe23) printf("w ext fe23 %x\n", value); // ext fe23
+            else if (address == 0xfe38) printf("w ext fe38 %x\n", value); // ext fe38
+            else if (address == 0xfe84) printf("w P3DDR %x\n", value); // P3DDR
+            else if (address == 0xfe85) printf("w P4DDR %x\n", value); // P4DDR
+            else if (address == 0xfe86) printf("w P3DR %x\n", value); // P3DR
+            else if (address == 0xfe87) printf("w P4DR %x\n", value); // P4DR
+            else if (address == 0xfe88) printf("w P5DDR %x\n", value); // P5DDR
+            else if (address == 0xfe89) printf("w P6DDR %x\n", value); // P6DDR
+            else if (address == 0xfe8a) printf("w P5DR %x\n", value); // P5DR
+            else if (address == 0xfe8b) printf("w P6DR %x\n", value); // P6DR
+            else if (address == 0xfe98) MCU_DeviceWrite(DEV_ADCSR, value); // ADCSR
+            else if (address == 0xfea0) MCU_DeviceWrite(DEV_FRT1_TCR, value); // TCR FRT1
+            else if (address == 0xfea1) MCU_DeviceWrite(DEV_FRT1_TCSR, value); // TCSR FRT1
+            else if (address == 0xfea2) MCU_DeviceWrite(DEV_FRT1_FRCH, value); // FRC H FRT1
+            else if (address == 0xfea3) MCU_DeviceWrite(DEV_FRT1_FRCL, value); // FRC L FRT1
+            else if (address == 0xfea4) MCU_DeviceWrite(DEV_FRT1_OCRAH, value); // OCRA H FRT1
+            else if (address == 0xfea5) MCU_DeviceWrite(DEV_FRT1_OCRAL, value); // OCRA L FRT1
+            else if (address == 0xfeb0) MCU_DeviceWrite(DEV_FRT2_TCR, value); // TCR FRT2
+            else if (address == 0xfeb1) MCU_DeviceWrite(DEV_FRT2_TCSR, value); // TCSR FRT2
+            else if (address == 0xfeb2) MCU_DeviceWrite(DEV_FRT2_FRCH, value); // FRC H FRT2
+            else if (address == 0xfeb3) MCU_DeviceWrite(DEV_FRT2_FRCL, value); // FRC L FRT2
+            else if (address == 0xfeb4) MCU_DeviceWrite(DEV_FRT2_OCRAH, value); // OCRA H FRT2
+            else if (address == 0xfeb5) MCU_DeviceWrite(DEV_FRT2_OCRAL, value); // OCRA L FRT2
+            else if (address == 0xfed8) printf("w RFSHCR %x\n", value); // RFSHCR
+            else if (address == 0xff00) MCU_DeviceWrite(DEV_IPRA, value); // IPRA
+            else if (address == 0xff01) MCU_DeviceWrite(DEV_IPRB, value); // IPRB
+            else if (address == 0xff02) MCU_DeviceWrite(DEV_IPRC, value); // IPRC
+            else if (address == 0xff03) MCU_DeviceWrite(DEV_IPRD, value); // IPRD
+            else if (address == 0xff10) printf("w TCSR WTD %x\n", value); // TCSR WTD
+            else if (address == 0xff11) printf("w TCNT WTD %x\n", value); // TCNT WTD
+            else if (address == 0xff14) printf("w WCR WSC %x\n", value); // WCR WSC
+            else if (address == 0xff16) printf("w ARBT BSC %x\n", value); // ARBT BSC
+            else if (address == 0xff17) printf("w AR3T CSC %x\n", value); // AR3T CSC
+            else if (address == 0xff1b) printf("w BRCR %x\n", value); // BRCR
+            else if (address == 0xff1d) printf("w IRQCR %x\n", value); // IRQCR
+            else if (address == 0xff1e) printf("w RSTCSR %x\n", value); // RSTCSR
+            else if (address == 0xff1f) printf("w RSTCSR WDT %x\n", value); // RSTCSR WDT
+            else
+                printf("%x%04x: write %x%04x %02x\n", mcu.cp, mcu.pc, page, address, value);
+        }
+        else if (page == 8)
+        {
+            sram[address & 0xffff] = value;
+            // printf("%x%04x: write %x%04x %02x\n", mcu.cp, mcu.pc, page, address, value);
+        }
+        else if (page == 0xf)
+        {
+            if (address == 0xc105) printf("w ext fc105 %x\n", value);
+        }
+        else
+            printf("%x%04x: write %x%04x %02x\n", mcu.cp, mcu.pc, page, address, value);
+        return;
+    }
+
     if (page == 0)
     {
         if (address & 0x8000)
@@ -1019,6 +1154,8 @@ int SDLCALL work_thread(void* data)
             MCU_WorkThread_Lock();
         }
 
+        printf("pc %x%04x\n", mcu.cp, mcu.pc);
+
         if (!mcu.ex_ignore)
             MCU_Interrupt_Handle();
         else
@@ -1036,7 +1173,7 @@ int SDLCALL work_thread(void* data)
 
         TIMER_Clock(mcu.cycles);
 
-        if (!mcu_mk1 && !mcu_jv880 && !mcu_scb55)
+        if (!mcu_mk1 && !mcu_jv880 && !mcu_scb55 && !mcu_sc88)
             SM_Update(mcu.cycles);
         else
         {
@@ -1457,6 +1594,7 @@ int main(int argc, char *argv[])
                 printf("  -jv880                         Use JV-880 ROM set.\n");
                 printf("  -scb55                         Use SCB-55 ROM set.\n");
                 printf("  -rlp3237                       Use RLP-3237 ROM set.\n");
+                printf("  -sc88                          Use SC-88 ROM set.\n");
                 printf("\n");
                 printf("  -gs                            Reset system in GS mode.\n");
                 printf("  -gm                            Reset system in GM mode.\n");
@@ -1470,6 +1608,11 @@ int main(int argc, char *argv[])
             else if (!strcmp(argv[i], "-sc155mk2"))
             {
                 romset = ROM_SET_SC155MK2;
+                autodetect = false;
+            }
+            else if (!strcmp(argv[i], "-sc88"))
+            {
+                romset = ROM_SET_SC88;
                 autodetect = false;
             }
         }
@@ -1555,15 +1698,17 @@ int main(int argc, char *argv[])
         case ROM_SET_SCB55:
         case ROM_SET_RLP3237:
             mcu_scb55 = true;
+        case ROM_SET_SC88:
+            mcu_sc88 = true;
             break;
     }
 
-    std::string rpaths[5];
+    std::string rpaths[ROM_SET_FILES];
 
     bool r_ok = true;
     std::string errors_list;
 
-    for(size_t i = 0; i < 5; ++i)
+    for(size_t i = 0; i < ROM_SET_FILES; ++i)
     {
         if (roms[romset][i][0] == '\0')
         {
@@ -1572,7 +1717,7 @@ int main(int argc, char *argv[])
         }
         rpaths[i] = basePath + "/" + roms[romset][i];
         s_rf[i] = Files::utf8_fopen(rpaths[i].c_str(), "rb");
-        bool optional = mcu_jv880 && i == 4;
+        bool optional = mcu_jv880 && i >= 4;
         r_ok &= optional || (s_rf[i] != nullptr);
         if(!s_rf[i])
         {
@@ -1596,7 +1741,7 @@ int main(int argc, char *argv[])
     memset(&mcu, 0, sizeof(mcu_t));
 
 
-    if (fread(rom1, 1, ROM1_SIZE, s_rf[0]) != ROM1_SIZE)
+    if (!mcu_sc88 && fread(rom1, 1, ROM1_SIZE, s_rf[0]) != ROM1_SIZE)
     {
         fprintf(stderr, "FATAL ERROR: Failed to read the mcu ROM1.\n");
         fflush(stderr);
@@ -1676,6 +1821,10 @@ int main(int argc, char *argv[])
             unscramble(tempbuf, waverom_exp, 0x800000);
         else
             printf("WaveRom EXP not found, skipping it.\n");
+    }
+    else if (mcu_sc88)
+    {
+        // TODO
     }
     else
     {
